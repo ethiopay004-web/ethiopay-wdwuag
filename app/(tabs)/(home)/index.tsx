@@ -1,161 +1,412 @@
-import React from "react";
-import { Stack, Link } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View, Text, Alert, Platform } from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { GlassView } from "expo-glass-effect";
-import { useTheme } from "@react-navigation/native";
 
-const ICON_COLOR = "#007AFF";
+import React, { useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  useColorScheme,
+  RefreshControl,
+  Platform,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, Redirect } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWallet } from '@/contexts/WalletContext';
+import { colors, spacing, borderRadius, shadows } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
 
 export default function HomeScreen() {
-  const theme = useTheme();
-  const modalDemos = [
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { balance, transactions, refreshTransactions } = useWallet();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshTransactions();
+    setRefreshing(false);
+  };
+
+  if (authLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/auth" />;
+  }
+
+  const quickActions = [
     {
-      title: "Standard Modal",
-      description: "Full screen modal presentation",
-      route: "/modal",
-      color: "#007AFF",
+      id: 'send',
+      title: 'Send',
+      icon: 'arrow.up.circle.fill',
+      color: colors.primary,
+      route: '/send-money',
     },
     {
-      title: "Form Sheet",
-      description: "Bottom sheet with detents and grabber",
-      route: "/formsheet",
-      color: "#34C759",
+      id: 'deposit',
+      title: 'Deposit',
+      icon: 'plus.circle.fill',
+      color: colors.secondary,
+      route: '/deposit',
     },
     {
-      title: "Transparent Modal",
-      description: "Overlay without obscuring background",
-      route: "/transparent-modal",
-      color: "#FF9500",
-    }
+      id: 'withdraw',
+      title: 'Withdraw',
+      icon: 'minus.circle.fill',
+      color: colors.accent,
+      route: '/withdraw',
+    },
+    {
+      id: 'scan',
+      title: 'Scan QR',
+      icon: 'qrcode',
+      color: colors.highlight,
+      route: '/scan-qr',
+    },
   ];
 
-  const renderModalDemo = ({ item }: { item: (typeof modalDemos)[0] }) => (
-    <GlassView style={[
-      styles.demoCard,
-      Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-    ]} glassEffectStyle="regular">
-      <View style={[styles.demoIcon, { backgroundColor: item.color }]}>
-        <IconSymbol name="square.grid.3x3" color="white" size={24} />
-      </View>
-      <View style={styles.demoContent}>
-        <Text style={[styles.demoTitle, { color: theme.colors.text }]}>{item.title}</Text>
-        <Text style={[styles.demoDescription, { color: theme.dark ? '#98989D' : '#666' }]}>{item.description}</Text>
-      </View>
-      <Link href={item.route as any} asChild>
-        <Pressable>
-          <GlassView style={[
-            styles.tryButton,
-            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }
-          ]} glassEffectStyle="clear">
-            <Text style={[styles.tryButtonText, { color: theme.colors.primary }]}>Try It</Text>
-          </GlassView>
-        </Pressable>
-      </Link>
-    </GlassView>
-  );
-
-  const renderHeaderRight = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol name="plus" color={theme.colors.primary} />
-    </Pressable>
-  );
-
-  const renderHeaderLeft = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol
-        name="gear"
-        color={theme.colors.primary}
-      />
-    </Pressable>
-  );
+  const recentTransactions = transactions.slice(0, 5);
 
   return (
-    <>
-      {Platform.OS === 'ios' && (
-        <Stack.Screen
-          options={{
-            title: "Building the app...",
-            headerRight: renderHeaderRight,
-            headerLeft: renderHeaderLeft,
-          }}
-        />
-      )}
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <FlatList
-          data={modalDemos}
-          renderItem={renderModalDemo}
-          keyExtractor={(item) => item.route}
-          contentContainerStyle={[
-            styles.listContainer,
-            Platform.OS !== 'ios' && styles.listContainerWithTabBar
-          ]}
-          contentInsetAdjustmentBehavior="automatic"
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
-    </>
+    <View style={[styles.container, isDark && styles.containerDark]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          Platform.OS !== 'ios' && styles.scrollContentWithTabBar,
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <LinearGradient
+          colors={[colors.primaryLight, colors.primary, colors.primaryDark]}
+          style={styles.balanceCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.balanceHeader}>
+            <Text style={styles.balanceLabel}>Total Balance</Text>
+            <TouchableOpacity>
+              <IconSymbol name="eye.fill" size={20} color={colors.textLight} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.balanceAmount}>
+            {balance.toFixed(2)} <Text style={styles.currency}>ETB</Text>
+          </Text>
+          <Text style={styles.userName}>Welcome, {user?.name}!</Text>
+        </LinearGradient>
+
+        <View style={styles.quickActionsContainer}>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
+            Quick Actions
+          </Text>
+          <View style={styles.quickActionsGrid}>
+            {quickActions.map((action) => (
+              <TouchableOpacity
+                key={action.id}
+                style={[styles.quickActionCard, isDark && styles.quickActionCardDark]}
+                onPress={() => router.push(action.route as any)}
+              >
+                <View
+                  style={[
+                    styles.quickActionIcon,
+                    { backgroundColor: action.color + '20' },
+                  ]}
+                >
+                  <IconSymbol name={action.icon as any} size={28} color={action.color} />
+                </View>
+                <Text style={[styles.quickActionText, isDark && styles.quickActionTextDark]}>
+                  {action.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.transactionsContainer}>
+          <View style={styles.transactionsHeader}>
+            <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
+              Recent Transactions
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/transactions')}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {recentTransactions.length === 0 ? (
+            <View style={[styles.emptyState, isDark && styles.emptyStateDark]}>
+              <IconSymbol name="tray" size={48} color={colors.textSecondary} />
+              <Text style={[styles.emptyStateText, isDark && styles.emptyStateTextDark]}>
+                No transactions yet
+              </Text>
+            </View>
+          ) : (
+            recentTransactions.map((transaction) => (
+              <TouchableOpacity
+                key={transaction.id}
+                style={[styles.transactionCard, isDark && styles.transactionCardDark]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/transaction-details',
+                    params: { id: transaction.id },
+                  })
+                }
+              >
+                <View
+                  style={[
+                    styles.transactionIcon,
+                    {
+                      backgroundColor:
+                        transaction.type === 'send' || transaction.type === 'withdraw'
+                          ? colors.highlight + '20'
+                          : colors.secondary + '20',
+                    },
+                  ]}
+                >
+                  <IconSymbol
+                    name={
+                      transaction.type === 'send' || transaction.type === 'withdraw'
+                        ? 'arrow.up'
+                        : 'arrow.down'
+                    }
+                    size={20}
+                    color={
+                      transaction.type === 'send' || transaction.type === 'withdraw'
+                        ? colors.highlight
+                        : colors.secondary
+                    }
+                  />
+                </View>
+                <View style={styles.transactionDetails}>
+                  <Text
+                    style={[styles.transactionTitle, isDark && styles.transactionTitleDark]}
+                  >
+                    {transaction.description}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.transactionDate,
+                      isDark && styles.transactionDateDark,
+                    ]}
+                  >
+                    {transaction.createdAt.toLocaleDateString()}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.transactionAmount,
+                    transaction.type === 'send' || transaction.type === 'withdraw'
+                      ? styles.transactionAmountNegative
+                      : styles.transactionAmountPositive,
+                  ]}
+                >
+                  {transaction.type === 'send' || transaction.type === 'withdraw'
+                    ? '-'
+                    : '+'}
+                  {transaction.amount.toFixed(2)} ETB
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor handled dynamically
+    backgroundColor: colors.background,
   },
-  listContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+  containerDark: {
+    backgroundColor: colors.backgroundDark,
   },
-  listContainerWithTabBar: {
-    paddingBottom: 100, // Extra padding for floating tab bar
-  },
-  demoCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  demoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  centered: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
-  demoContent: {
+  loadingText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  loadingTextDark: {
+    color: colors.textDark,
+  },
+  scrollContent: {
+    paddingBottom: spacing.lg,
+  },
+  scrollContentWithTabBar: {
+    paddingBottom: 100,
+  },
+  balanceCard: {
+    margin: spacing.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    ...shadows.md,
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: colors.textLight,
+    opacity: 0.9,
+  },
+  balanceAmount: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: colors.textLight,
+    marginBottom: spacing.xs,
+  },
+  currency: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  userName: {
+    fontSize: 14,
+    color: colors.textLight,
+    opacity: 0.9,
+  },
+  quickActionsContainer: {
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  sectionTitleDark: {
+    color: colors.textDark,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickActionCard: {
+    width: '48%',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  quickActionCardDark: {
+    backgroundColor: colors.cardDark,
+  },
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  quickActionTextDark: {
+    color: colors.textDark,
+  },
+  transactionsContainer: {
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.lg,
+  },
+  transactionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  emptyState: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.xl,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  emptyStateDark: {
+    backgroundColor: colors.cardDark,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  emptyStateTextDark: {
+    color: colors.textDark,
+  },
+  transactionCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  transactionCardDark: {
+    backgroundColor: colors.cardDark,
+  },
+  transactionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  transactionDetails: {
     flex: 1,
   },
-  demoTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-    // color handled dynamically
-  },
-  demoDescription: {
-    fontSize: 14,
-    lineHeight: 18,
-    // color handled dynamically
-  },
-  headerButtonContainer: {
-    padding: 6,
-  },
-  tryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  tryButtonText: {
+  transactionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    // color handled dynamically
+    color: colors.text,
+    marginBottom: 2,
+  },
+  transactionTitleDark: {
+    color: colors.textDark,
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  transactionDateDark: {
+    color: colors.textDark,
+  },
+  transactionAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  transactionAmountPositive: {
+    color: colors.secondary,
+  },
+  transactionAmountNegative: {
+    color: colors.highlight,
   },
 });

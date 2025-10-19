@@ -1,34 +1,28 @@
-import "react-native-reanimated";
-import React, { useEffect } from "react";
-import { useFonts } from "expo-font";
-import { Stack, router } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { SystemBars } from "react-native-edge-to-edge";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert } from "react-native";
-import { useNetworkState } from "expo-network";
+
+import React, { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SystemBars } from 'react-native-edge-to-edge';
+import { useNetworkState } from 'expo-network';
+import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
+import { useColorScheme, Alert } from 'react-native';
+import 'react-native-reanimated';
 import {
   DarkTheme,
   DefaultTheme,
-  Theme,
   ThemeProvider,
-} from "@react-navigation/native";
-import { StatusBar } from "expo-status-bar";
-import { Button } from "@/components/button";
-import { WidgetProvider } from "@/contexts/WidgetContext";
+} from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
+import { Stack, router } from 'expo-router';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { WalletProvider } from '@/contexts/WalletContext';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
-
-export const unstable_settings = {
-  initialRouteName: "(tabs)",
-};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const networkState = useNetworkState();
   const [loaded] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
   useEffect(() => {
@@ -37,88 +31,72 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  React.useEffect(() => {
-    if (
-      !networkState.isConnected &&
-      networkState.isInternetReachable === false
-    ) {
-      Alert.alert(
-        "🔌 You are offline",
-        "You can keep using the app! Your changes will be saved locally and synced when you are back online."
-      );
-    }
-  }, [networkState.isConnected, networkState.isInternetReachable]);
-
   if (!loaded) {
     return null;
   }
 
-  const CustomDefaultTheme: Theme = {
-    ...DefaultTheme,
-    dark: false,
-    colors: {
-      primary: "rgb(0, 122, 255)", // System Blue
-      background: "rgb(242, 242, 247)", // Light mode background
-      card: "rgb(255, 255, 255)", // White cards/surfaces
-      text: "rgb(0, 0, 0)", // Black text for light mode
-      border: "rgb(216, 216, 220)", // Light gray for separators/borders
-      notification: "rgb(255, 59, 48)", // System Red
-    },
-  };
-
-  const CustomDarkTheme: Theme = {
-    ...DarkTheme,
-    colors: {
-      primary: "rgb(10, 132, 255)", // System Blue (Dark Mode)
-      background: "rgb(1, 1, 1)", // True black background for OLED displays
-      card: "rgb(28, 28, 30)", // Dark card/surface color
-      text: "rgb(255, 255, 255)", // White text for dark mode
-      border: "rgb(44, 44, 46)", // Dark gray for separators/borders
-      notification: "rgb(255, 69, 58)", // System Red (Dark Mode)
-    },
-  };
   return (
-    <>
-      <StatusBar style="auto" animated />
-        <ThemeProvider
-          value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
-        >
-          <WidgetProvider>
-            <GestureHandlerRootView>
-            <Stack>
-              {/* Main app with tabs */}
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-              {/* Modal Demo Screens */}
-              <Stack.Screen
-                name="modal"
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AuthProvider>
+          <WalletProvider>
+            <SystemBars style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="auth" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen 
+                name="send-money" 
                 options={{
-                  presentation: "modal",
-                  title: "Standard Modal",
+                  presentation: 'modal',
+                  headerShown: true,
+                  title: 'Send Money',
                 }}
               />
-              <Stack.Screen
-                name="formsheet"
+              <Stack.Screen 
+                name="deposit" 
                 options={{
-                  presentation: "formSheet",
-                  title: "Form Sheet Modal",
-                  sheetGrabberVisible: true,
-                  sheetAllowedDetents: [0.5, 0.8, 1.0],
-                  sheetCornerRadius: 20,
+                  presentation: 'modal',
+                  headerShown: true,
+                  title: 'Deposit Money',
                 }}
               />
-              <Stack.Screen
-                name="transparent-modal"
+              <Stack.Screen 
+                name="withdraw" 
                 options={{
-                  presentation: "transparentModal",
-                  headerShown: false,
+                  presentation: 'modal',
+                  headerShown: true,
+                  title: 'Withdraw Money',
+                }}
+              />
+              <Stack.Screen 
+                name="pay-bill" 
+                options={{
+                  presentation: 'modal',
+                  headerShown: true,
+                  title: 'Pay Bill',
+                }}
+              />
+              <Stack.Screen 
+                name="buy-airtime" 
+                options={{
+                  presentation: 'modal',
+                  headerShown: true,
+                  title: 'Buy Airtime',
+                }}
+              />
+              <Stack.Screen 
+                name="transaction-details" 
+                options={{
+                  presentation: 'modal',
+                  headerShown: true,
+                  title: 'Transaction Details',
                 }}
               />
             </Stack>
-            <SystemBars style={"auto"} />
-            </GestureHandlerRootView>
-          </WidgetProvider>
-        </ThemeProvider>
-    </>
+          </WalletProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
