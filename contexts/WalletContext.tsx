@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext';
 
 interface WalletContextType {
   balance: number;
+  etpBalance: number;
   transactions: Transaction[];
   isLoading: boolean;
   sendMoney: (toPhone: string, amount: number, description: string) => Promise<boolean>;
@@ -13,23 +14,53 @@ interface WalletContextType {
   withdrawMoney: (amount: number, method: string) => Promise<boolean>;
   payBill: (type: string, provider: string, accountNumber: string, amount: number) => Promise<boolean>;
   buyAirtime: (provider: string, phoneNumber: string, amount: number) => Promise<boolean>;
+  convertToETP: (etbAmount: number) => Promise<boolean>;
+  convertToETB: (etpAmount: number) => Promise<boolean>;
   refreshTransactions: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+const EXCHANGE_RATE = 150; // 1 ETP = 150 ETB
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { user, updateUser } = useAuth();
   const [balance, setBalance] = useState(0);
+  const [etpBalance, setEtpBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
       setBalance(user.balance);
+      loadETPBalance();
       loadTransactions();
     }
   }, [user]);
+
+  const loadETPBalance = async () => {
+    if (!user) return;
+
+    try {
+      const etpData = await AsyncStorage.getItem(`etp_balance_${user.id}`);
+      if (etpData) {
+        setEtpBalance(parseFloat(etpData));
+      }
+    } catch (error) {
+      console.log('Error loading ETP balance:', error);
+    }
+  };
+
+  const saveETPBalance = async (newBalance: number) => {
+    if (!user) return;
+
+    try {
+      await AsyncStorage.setItem(`etp_balance_${user.id}`, newBalance.toString());
+      setEtpBalance(newBalance);
+    } catch (error) {
+      console.log('Error saving ETP balance:', error);
+    }
+  };
 
   const loadTransactions = async () => {
     if (!user) return;
@@ -61,6 +92,88 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setTransactions(updatedTransactions);
     } catch (error) {
       console.log('Error saving transaction:', error);
+    }
+  };
+
+  const convertToETP = async (etbAmount: number): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      if (balance < etbAmount) {
+        console.log('Insufficient ETB balance');
+        return false;
+      }
+
+      const etpValue = etbAmount / EXCHANGE_RATE;
+
+      const transaction: Transaction = {
+        id: Date.now().toString(),
+        type: 'payment',
+        amount: etbAmount,
+        fee: 0,
+        total: etbAmount,
+        fromUserId: user.id,
+        status: 'completed',
+        description: `Converted ${etbAmount.toFixed(2)} ETB to ${etpValue.toFixed(2)} ETP`,
+        category: 'ETP Conversion',
+        createdAt: new Date(),
+        completedAt: new Date(),
+        receiptId: `RCP${Date.now()}`,
+      };
+
+      const newETBBalance = balance - etbAmount;
+      const newETPBalance = etpBalance + etpValue;
+
+      setBalance(newETBBalance);
+      await updateUser({ balance: newETBBalance });
+      await saveETPBalance(newETPBalance);
+      await saveTransaction(transaction);
+
+      return true;
+    } catch (error) {
+      console.log('Convert to ETP error:', error);
+      return false;
+    }
+  };
+
+  const convertToETB = async (etpAmount: number): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      if (etpBalance < etpAmount) {
+        console.log('Insufficient ETP balance');
+        return false;
+      }
+
+      const etbValue = etpAmount * EXCHANGE_RATE;
+
+      const transaction: Transaction = {
+        id: Date.now().toString(),
+        type: 'deposit',
+        amount: etbValue,
+        fee: 0,
+        total: etbValue,
+        fromUserId: user.id,
+        status: 'completed',
+        description: `Converted ${etpAmount.toFixed(2)} ETP to ${etbValue.toFixed(2)} ETB`,
+        category: 'ETP Conversion',
+        createdAt: new Date(),
+        completedAt: new Date(),
+        receiptId: `RCP${Date.now()}`,
+      };
+
+      const newETBBalance = balance + etbValue;
+      const newETPBalance = etpBalance - etpAmount;
+
+      setBalance(newETBBalance);
+      await updateUser({ balance: newETBBalance });
+      await saveETPBalance(newETPBalance);
+      await saveTransaction(transaction);
+
+      return true;
+    } catch (error) {
+      console.log('Convert to ETB error:', error);
+      return false;
     }
   };
 
@@ -264,6 +377,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const refreshTransactions = async () => {
     setIsLoading(true);
     await loadTransactions();
+    await loadETPBalance();
     setIsLoading(false);
   };
 
@@ -271,6 +385,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     <WalletContext.Provider
       value={{
         balance,
+        etpBalance,
         transactions,
         isLoading,
         sendMoney,
@@ -278,6 +393,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         withdrawMoney,
         payBill,
         buyAirtime,
+        convertToETP,
+        convertToETB,
         refreshTransactions,
       }}
     >

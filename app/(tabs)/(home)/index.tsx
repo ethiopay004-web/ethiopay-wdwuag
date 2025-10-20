@@ -21,7 +21,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { balance, transactions, refreshTransactions } = useWallet();
+  const { balance, etpBalance, transactions, refreshTransactions } = useWallet();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = async () => {
@@ -67,11 +67,11 @@ export default function HomeScreen() {
       route: '/withdraw',
     },
     {
-      id: 'scan',
-      title: 'Scan QR',
-      icon: 'qrcode',
-      color: colors.highlight,
-      route: '/scan-qr',
+      id: 'etp',
+      title: 'ETP Wallet',
+      icon: 'creditcard.fill',
+      color: colors.accent,
+      route: '/etp-wallet',
     },
   ];
 
@@ -103,6 +103,12 @@ export default function HomeScreen() {
           <Text style={styles.balanceAmount}>
             {balance.toFixed(2)} <Text style={styles.currency}>ETB</Text>
           </Text>
+          <View style={styles.etpBalanceRow}>
+            <IconSymbol name="creditcard" size={16} color={colors.textLight} />
+            <Text style={styles.etpBalanceText}>
+              {etpBalance.toFixed(2)} ETP
+            </Text>
+          </View>
           <Text style={styles.userName}>Welcome, {user?.name}!</Text>
         </LinearGradient>
 
@@ -275,6 +281,18 @@ const styles = StyleSheet.create({
   currency: {
     fontSize: 20,
     fontWeight: '600',
+  },
+  etpBalanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  etpBalanceText: {
+    fontSize: 14,
+    color: colors.textLight,
+    fontWeight: '600',
+    opacity: 0.9,
   },
   userName: {
     fontSize: 14,
