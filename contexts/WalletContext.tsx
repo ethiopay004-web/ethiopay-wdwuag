@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Transaction, calculateTransactionFee } from '@/types';
 import { useAuth } from './AuthContext';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 interface WalletContextType {
   balance: number;
@@ -42,6 +44,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
+      // Try to load from Firestore first (for Firebase users)
+      try {
+        const walletDoc = await getDoc(doc(db, 'wallets', user.id));
+        if (walletDoc.exists()) {
+          const data = walletDoc.data();
+          setEtpBalance(data.etpBalance || 0);
+          return;
+        }
+      } catch (error) {
+        console.log('Firestore not available, using local storage');
+      }
+
+      // Fallback to AsyncStorage
       const etpData = await AsyncStorage.getItem(`etp_balance_${user.id}`);
       if (etpData) {
         setEtpBalance(parseFloat(etpData));
@@ -55,6 +70,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
+      // Save to Firestore (for Firebase users)
+      try {
+        await setDoc(doc(db, 'wallets', user.id), {
+          etpBalance: newBalance,
+          updatedAt: new Date(),
+        }, { merge: true });
+      } catch (error) {
+        console.log('Firestore not available, using local storage');
+      }
+
+      // Also save to AsyncStorage as backup
       await AsyncStorage.setItem(`etp_balance_${user.id}`, newBalance.toString());
       setEtpBalance(newBalance);
     } catch (error) {
